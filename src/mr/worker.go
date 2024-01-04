@@ -43,22 +43,22 @@ func Worker(mapf func(string, string) []KeyValue,
 		// 向协调者请求任务
 		task := CallForTask()
 
-		if task.taskType == "map" {
+		if task.TaskType == "map" {
 			// 执行Map任务
-			Map(task.fileName, mapf, task.taskID)
+			Map(task.FileName, mapf, task.MapID)
 			// 可能需要通知协调者Map任务完成
 
-		} else if task.taskType == "reduce" {
+		} else if task.TaskType == "reduce" {
 			// 执行Reduce任务
-			Reduce(task.mapNumber, task.reduceID, reducef)
+			Reduce(task.MapNumber, task.ReduceID, reducef)
 			// 可能需要通知协调者Reduce任务完成
 
-		} else if task.taskType == "wait" {
+		} else if task.TaskType == "wait" {
 			// 如果没有更多的Map任务，但Reduce任务还未开始
 			time.Sleep(time.Second)
 			continue
 
-		} else if task.taskType == "exit" {
+		} else if task.TaskType == "exit" {
 			// 如果所有任务都完成了，退出循环
 			break
 		}
@@ -185,7 +185,7 @@ func CallForTask() ExampleReply {
 	ok := call("Coordinator.AssignTask", &args, &reply)
 	if ok {
 		// reply.Y should be 100.
-		fmt.Printf("reply.fileName %v\n", reply.fileName)
+		fmt.Printf("reply.fileName %v\n", reply.FileName)
 	} else {
 		fmt.Printf("call failed!\n")
 	}

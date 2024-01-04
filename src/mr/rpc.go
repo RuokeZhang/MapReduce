@@ -21,12 +21,12 @@ type ExampleArgs struct {
 }
 
 type ExampleReply struct {
-	taskType  string
-	fileName  string
-	status    int
-	taskID    int
-	reduceID  int
-	mapNumber int
+	TaskType  string
+	FileName  string
+	Status    int
+	MapID     int
+	ReduceID  int
+	MapNumber int
 }
 
 // Add your RPC definitions here.
