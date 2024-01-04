@@ -38,9 +38,9 @@ func (c *Coordinator) AssignTask(args *ExampleArgs, reply *ExampleReply) error {
 	if c.mapCompleted < c.TaskNum {
 		for fileName, status := range c.mapStatus {
 			if status == 0 {
-				reply.taskType = "map"
-				reply.fileName = fileName
-				reply.status = 0
+				reply.TaskType = "map"
+				reply.FileName = fileName
+				reply.Status = 0
 				c.mapStatus[fileName] = 1
 				return nil
 			}
@@ -48,9 +48,9 @@ func (c *Coordinator) AssignTask(args *ExampleArgs, reply *ExampleReply) error {
 	} else {
 		for reduceID, status := range c.reduceStatus {
 			if status == 0 {
-				reply.taskType = "reduce"
-				reply.fileName = ""
-				reply.status = 0
+				reply.TaskType = "reduce"
+				reply.FileName = ""
+				reply.Status = 0
 				c.reduceStatus[reduceID] = 1
 				return nil
 			}
