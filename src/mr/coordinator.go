@@ -9,21 +9,14 @@ import (
 )
 
 type Coordinator struct {
-	// a map that stores the status of each map task
-	// 0: not started
-	// 1: in progress
-	// 2: completed
-	mapStatus map[string]int
+	ReduceNum int
 
-	// a map that stores the status of each reduce task
-	// 0: not started
-	// 1: in progress
-	// 2: completed
-	reduceStatus map[int]int
-
-	mapCompleted int
-
-	TaskNum int
+	ReduceCompleted int
+	MapCompleted    int
+	MapNum          int
+	mapStatus       []int
+	reduceStatus    []int
+	MapAssigned     int
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -35,26 +28,35 @@ type Coordinator struct {
 // respond with the file name of an as-yet-unstarted map task
 
 func (c *Coordinator) AssignTask(args *ExampleArgs, reply *ExampleReply) error {
-	if c.mapCompleted < c.TaskNum {
-		for fileName, status := range c.mapStatus {
-			if status == 0 {
+	if c.MapAssigned < c.MapNum {
+		for i := 0; i < c.MapNum; i++ {
+			//start a map task
+			if c.mapStatus[i] == 0 {
 				reply.TaskType = "map"
-				reply.FileName = fileName
-				reply.Status = 0
-				c.mapStatus[fileName] = 1
-				return nil
+				reply.Status = 1
+				c.mapStatus[i] = 1
+				c.MapAssigned++
+				break
 			}
 		}
-	} else {
-		for reduceID, status := range c.reduceStatus {
-			if status == 0 {
+	} else if c.MapCompleted == c.MapNum && c.ReduceCompleted < c.ReduceNum {
+		for i := 0; i < c.ReduceNum; i++ {
+			//start a reduce task
+			if c.reduceStatus[i] == 0 {
 				reply.TaskType = "reduce"
-				reply.FileName = ""
-				reply.Status = 0
-				c.reduceStatus[reduceID] = 1
-				return nil
+				reply.Status = 1
+				c.reduceStatus[i] = 1
+				break
 			}
 		}
+	} else if c.MapCompleted == c.MapNum && c.ReduceCompleted == c.ReduceNum {
+		// 所有任务已完成
+		reply.TaskType = "done"
+		reply.Status = 1
+	} else {
+		// 所有Map任务已分配，但尚未全部完成
+		reply.TaskType = "wait"
+		reply.Status = 1
 	}
 	return nil
 }
@@ -90,7 +92,10 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
 
 	// Your code here.
-
+	c.MapCompleted = 0
+	c.MapNum = len(files)
+	c.ReduceNum = nReduce
+	c.ReduceCompleted = 0
 	c.server()
 	return &c
 }
