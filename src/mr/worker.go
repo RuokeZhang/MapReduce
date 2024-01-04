@@ -47,18 +47,18 @@ func Worker(mapf func(string, string) []KeyValue,
 			// 执行Map任务
 			Map(task.FileName, mapf, task.MapID)
 			// 可能需要通知协调者Map任务完成
-
+			ReportTask(task.MapID, task.ReduceID, "map")
 		} else if task.TaskType == "reduce" {
 			// 执行Reduce任务
 			Reduce(task.MapNumber, task.ReduceID, reducef)
 			// 可能需要通知协调者Reduce任务完成
-
+			ReportTask(task.MapID, task.ReduceID, "reduce")
 		} else if task.TaskType == "wait" {
 			// 如果没有更多的Map任务，但Reduce任务还未开始
 			time.Sleep(time.Second)
 			continue
 
-		} else if task.TaskType == "exit" {
+		} else if task.TaskType == "done" {
 			// 如果所有任务都完成了，退出循环
 			break
 		}
@@ -91,14 +91,16 @@ func Reduce(mapNumber int, reduceID int, reducef func(string, []string) string) 
 		file.Close()
 	}
 	sort.Sort(ByKey(intermediate))
+	fmt.Printf("completed sort\n")
 	oname := "mr-out-" + fmt.Sprintf("%d", reduceID)
-	ofile, _ := os.Create(oname)
-
-	//
+	ofile, err := os.CreateTemp(".", oname+"-")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// call Reduce on each distinct key in intermediate[],
 	// and print the result to mr-out-0.
-	//
 	i := 0
+	fmt.Printf("len(intermediate): %v\n", len(intermediate))
 	for i < len(intermediate) {
 		j := i + 1
 		for j < len(intermediate) && intermediate[j].Key == intermediate[i].Key {
@@ -109,14 +111,16 @@ func Reduce(mapNumber int, reduceID int, reducef func(string, []string) string) 
 			values = append(values, intermediate[k].Value)
 		}
 		output := reducef(intermediate[i].Key, values)
-
+		fmt.Printf("reduce output: %v\n", output)
 		// this is the correct format for each line of Reduce output.
 		fmt.Fprintf(ofile, "%v %v\n", intermediate[i].Key, output)
 
 		i = j
 	}
 
+	os.Rename(ofile.Name(), oname)
 	ofile.Close()
+
 }
 
 // read that file and call the application Mapf function
@@ -145,7 +149,8 @@ func Map(fileName string, mapf func(string, string) []KeyValue, mapID int) {
 
 	for i := 0; i < 10; i++ {
 		tempFileName := fmt.Sprintf("mr-%d-%d", mapID, i)
-		tempFile, err := ioutil.TempFile("", tempFileName+"-")
+		fmt.Printf("tempFileName: %v\n", tempFileName)
+		tempFile, err := os.CreateTemp(".", tempFileName+"-")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -185,11 +190,34 @@ func CallForTask() ExampleReply {
 	ok := call("Coordinator.AssignTask", &args, &reply)
 	if ok {
 		// reply.Y should be 100.
-		fmt.Printf("reply.fileName %v\n", reply.FileName)
+		fmt.Printf("reply.TaskType: %v\n", reply.TaskType)
 	} else {
 		fmt.Printf("call failed!\n")
 	}
 	return reply
+}
+
+func ReportTask(mapID int, reduceID int, taskType string) {
+	args := ReportArgs{}
+	args.MapID = mapID
+	args.ReduceID = reduceID
+	args.TaskType = taskType
+	reply := ReportReply{}
+	if taskType == "map" {
+		ok := call("Coordinator.HandleMapReport", &args, &reply)
+		if ok {
+			fmt.Printf("HandleMapReport success\n")
+		} else {
+			fmt.Printf("HandleMapReport failed\n")
+		}
+	} else {
+		ok := call("Coordinator.HandleReduceReport", &args, &reply)
+		if ok {
+			fmt.Printf("HandleReduceReport success\n")
+		} else {
+			fmt.Printf("HandleReduceReport failed\n")
+		}
+	}
 }
 
 // send an RPC request to the coordinator, wait for the response.
