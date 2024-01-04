@@ -145,7 +145,7 @@ func Map(fileName string, mapf func(string, string) []KeyValue, mapID int) {
 
 	for i := 0; i < 10; i++ {
 		tempFileName := fmt.Sprintf("mr-%d-%d", mapID, i)
-		tempFile, err := ioutil.TempFile("", tempFileName)
+		tempFile, err := ioutil.TempFile("", tempFileName+"-")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -156,6 +156,9 @@ func Map(fileName string, mapf func(string, string) []KeyValue, mapID int) {
 			}
 		}
 		if err := tempFile.Close(); err != nil {
+			log.Fatal(err)
+		}
+		if err := os.Rename(tempFile.Name(), tempFileName); err != nil {
 			log.Fatal(err)
 		}
 	}
