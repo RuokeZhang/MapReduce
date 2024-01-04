@@ -91,7 +91,6 @@ func Reduce(mapNumber int, reduceID int, reducef func(string, []string) string) 
 		file.Close()
 	}
 	sort.Sort(ByKey(intermediate))
-	fmt.Printf("completed sort\n")
 	oname := "mr-out-" + fmt.Sprintf("%d", reduceID)
 	ofile, err := os.CreateTemp(".", oname+"-")
 	if err != nil {
@@ -100,7 +99,6 @@ func Reduce(mapNumber int, reduceID int, reducef func(string, []string) string) 
 	// call Reduce on each distinct key in intermediate[],
 	// and print the result to mr-out-0.
 	i := 0
-	fmt.Printf("len(intermediate): %v\n", len(intermediate))
 	for i < len(intermediate) {
 		j := i + 1
 		for j < len(intermediate) && intermediate[j].Key == intermediate[i].Key {
@@ -111,7 +109,6 @@ func Reduce(mapNumber int, reduceID int, reducef func(string, []string) string) 
 			values = append(values, intermediate[k].Value)
 		}
 		output := reducef(intermediate[i].Key, values)
-		fmt.Printf("reduce output: %v\n", output)
 		// this is the correct format for each line of Reduce output.
 		fmt.Fprintf(ofile, "%v %v\n", intermediate[i].Key, output)
 
@@ -149,7 +146,6 @@ func Map(fileName string, mapf func(string, string) []KeyValue, mapID int) {
 
 	for i := 0; i < 10; i++ {
 		tempFileName := fmt.Sprintf("mr-%d-%d", mapID, i)
-		fmt.Printf("tempFileName: %v\n", tempFileName)
 		tempFile, err := os.CreateTemp(".", tempFileName+"-")
 		if err != nil {
 			log.Fatal(err)

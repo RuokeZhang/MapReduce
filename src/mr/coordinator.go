@@ -1,7 +1,6 @@
 package mr
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -143,8 +142,6 @@ func (c *Coordinator) HandleMapReport(args *ReportArgs, reply *ReportReply) erro
 	defer c.mu.Unlock()
 	c.MapCompleted++
 	c.MapStatus[args.MapID] = 2 // 任务状态设置为已完成
-	fmt.Print("map's id: ", args.MapID, "\n")
-	fmt.Print("MapCompleted: ", c.MapCompleted, "\n")
 	return nil
 }
 
