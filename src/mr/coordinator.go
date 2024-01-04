@@ -32,6 +32,8 @@ type Coordinator struct {
 
 func (c *Coordinator) AssignTask(args *ExampleArgs, reply *ExampleReply) error {
 	reply.MapNumber = c.MapNum
+	c.mu.Lock() // 在检查和修改共享变量之前加锁
+	defer c.mu.Unlock()
 	if c.MapAssigned < c.MapNum {
 		for i := 0; i < c.MapNum; i++ {
 			if c.MapStatus[i] == 0 {
