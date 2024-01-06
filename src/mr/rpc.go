@@ -27,6 +27,7 @@ type ExampleReply struct {
 	MapID     int
 	ReduceID  int
 	MapNumber int
+	ReduceNum int
 }
 
 // Add your RPC definitions here.

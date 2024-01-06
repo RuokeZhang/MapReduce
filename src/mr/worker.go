@@ -45,17 +45,17 @@ func Worker(mapf func(string, string) []KeyValue,
 
 		if task.TaskType == "map" {
 			// 执行Map任务
-			Map(task.FileName, mapf, task.MapID)
+			Map(task.FileName, mapf, task.MapID, task.ReduceNum)
 			// 可能需要通知协调者Map任务完成
 			ReportTask(task.MapID, task.ReduceID, "map")
 		} else if task.TaskType == "reduce" {
 			// 执行Reduce任务
 			Reduce(task.MapNumber, task.ReduceID, reducef)
+			fmt.Printf("reduce id: %v\n", task.ReduceID)
 			// 可能需要通知协调者Reduce任务完成
 			ReportTask(task.MapID, task.ReduceID, "reduce")
 		} else if task.TaskType == "wait" {
 			// 如果没有更多的Map任务，但Reduce任务还未开始
-			time.Sleep(time.Second)
 			continue
 
 		} else if task.TaskType == "done" {
@@ -63,8 +63,8 @@ func Worker(mapf func(string, string) []KeyValue,
 			break
 		}
 
-		// 等待10s再请求下一个任务
-		time.Sleep(time.Second * 10)
+		// 等待1s再请求下一个任务
+		time.Sleep(time.Second * 1)
 	}
 }
 
@@ -111,7 +111,7 @@ func Reduce(mapNumber int, reduceID int, reducef func(string, []string) string) 
 			values = append(values, intermediate[k].Value)
 		}
 		output := reducef(intermediate[i].Key, values)
-		fmt.Printf("reduce output: %v\n", output)
+		//fmt.Printf("reduce output: %v\n", output)
 		// this is the correct format for each line of Reduce output.
 		fmt.Fprintf(ofile, "%v %v\n", intermediate[i].Key, output)
 
@@ -126,7 +126,7 @@ func Reduce(mapNumber int, reduceID int, reducef func(string, []string) string) 
 // read that file and call the application Mapf function
 // write the intermediate key/value pairs to local disk
 // repeat until all files have been processed
-func Map(fileName string, mapf func(string, string) []KeyValue, mapID int) {
+func Map(fileName string, mapf func(string, string) []KeyValue, mapID int, reduceNum int) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		log.Fatalf("cannot open %v", fileName)
@@ -137,19 +137,19 @@ func Map(fileName string, mapf func(string, string) []KeyValue, mapID int) {
 	}
 	file.Close()
 	kva := mapf(fileName, string(content))
-	buckets := make([][]KeyValue, 10)
+	buckets := make([][]KeyValue, reduceNum)
 	for i := range buckets {
 		buckets[i] = []KeyValue{}
 	}
 
 	for _, kv := range kva {
-		bucketID := ihash(kv.Key) % 10
+		bucketID := ihash(kv.Key) % reduceNum
 		buckets[bucketID] = append(buckets[bucketID], kv)
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < reduceNum; i++ {
 		tempFileName := fmt.Sprintf("mr-%d-%d", mapID, i)
-		fmt.Printf("tempFileName: %v\n", tempFileName)
+		//fmt.Printf("tempFileName: %v\n", tempFileName)
 		tempFile, err := os.CreateTemp(".", tempFileName+"-")
 		if err != nil {
 			log.Fatal(err)
@@ -190,9 +190,9 @@ func CallForTask() ExampleReply {
 	ok := call("Coordinator.AssignTask", &args, &reply)
 	if ok {
 		// reply.Y should be 100.
-		fmt.Printf("reply.TaskType: %v\n", reply.TaskType)
+		//fmt.Printf("reply.TaskType: %v\n", reply.TaskType)
 	} else {
-		fmt.Printf("call failed!\n")
+		fmt.Printf("coordinator died\n")
 	}
 	return reply
 }

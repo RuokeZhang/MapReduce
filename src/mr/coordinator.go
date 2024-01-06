@@ -32,6 +32,8 @@ type Coordinator struct {
 
 func (c *Coordinator) AssignTask(args *ExampleArgs, reply *ExampleReply) error {
 	reply.MapNumber = c.MapNum
+	reply.ReduceNum = c.ReduceNum
+	c.mu.Lock()
 	if c.MapAssigned < c.MapNum {
 		for i := 0; i < c.MapNum; i++ {
 			if c.MapStatus[i] == 0 {
@@ -42,7 +44,7 @@ func (c *Coordinator) AssignTask(args *ExampleArgs, reply *ExampleReply) error {
 				reply.Status = 1
 				c.MapStatus[i] = 1 // 任务状态设置为进行中
 				c.MapAssigned++
-
+				c.mu.Unlock()
 				// 启动一个goroutine来监控任务超时
 				go c.monitorMapTask(i)
 				break
@@ -52,8 +54,9 @@ func (c *Coordinator) AssignTask(args *ExampleArgs, reply *ExampleReply) error {
 		// 所有Map任务已分配，但尚未全部完成
 		reply.TaskType = "wait"
 		reply.Status = 1
+		c.mu.Unlock()
 
-	} else if c.MapCompleted == c.MapNum && c.ReduceCompleted < c.ReduceNum {
+	} else if c.MapCompleted == c.MapNum && c.reduceAssigned < c.ReduceNum {
 		for i := 0; i < c.ReduceNum; i++ {
 			//start a reduce task
 			if c.ReduceStatus[i] == 0 {
@@ -62,14 +65,22 @@ func (c *Coordinator) AssignTask(args *ExampleArgs, reply *ExampleReply) error {
 				reply.ReduceID = i
 				c.ReduceStatus[i] = 1
 				c.reduceAssigned++
+				c.mu.Unlock()
 				// 启动一个goroutine来监控任务超时
 				go c.monitorReduceTask(i)
+				//fmt.Printf("reduce task %d assigned\n", i)
 				break
 			}
 		}
+	} else if c.MapCompleted == c.MapNum && c.reduceAssigned == c.ReduceNum && c.ReduceCompleted < c.ReduceNum {
+		// 所有Reduce任务已分配，但尚未全部完成
+		reply.TaskType = "wait"
+		reply.Status = 1
+		c.mu.Unlock()
 	} else if c.MapCompleted == c.MapNum && c.ReduceCompleted == c.ReduceNum {
 		// 所有任务已完成
 		reply.TaskType = "done"
+		c.mu.Unlock()
 	}
 	return nil
 }
@@ -91,6 +102,8 @@ func (c *Coordinator) server() {
 // main/mrcoordinator.go calls Done() periodically to find out
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	ret := false
 
 	if c.MapCompleted == c.MapNum && c.ReduceCompleted == c.ReduceNum {
@@ -121,6 +134,7 @@ func (c *Coordinator) monitorMapTask(taskIndex int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.MapStatus[taskIndex] == 1 { // 如果任务状态仍然是进行中
+		fmt.Printf("map task %d timeout\n", taskIndex)
 		c.MapStatus[taskIndex] = 0 // 重置任务状态
 		c.MapAssigned--
 	}
@@ -131,6 +145,7 @@ func (c *Coordinator) monitorReduceTask(taskIndex int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.ReduceStatus[taskIndex] == 1 { // 如果任务状态仍然是进行中
+		fmt.Printf("reduce task %d timeout\n", taskIndex)
 		c.ReduceStatus[taskIndex] = 0 // 重置任务状态
 		c.reduceAssigned--
 	}
@@ -139,16 +154,24 @@ func (c *Coordinator) monitorReduceTask(taskIndex int) {
 func (c *Coordinator) HandleMapReport(args *ReportArgs, reply *ReportReply) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.MapStatus[args.MapID] == 2 {
+		// 任务已经完成，不需要处理
+		return nil
+	}
 	c.MapCompleted++
 	c.MapStatus[args.MapID] = 2 // 任务状态设置为已完成
-	fmt.Print("map's id: ", args.MapID, "\n")
-	fmt.Print("MapCompleted: ", c.MapCompleted, "\n")
+	//fmt.Print("map's id: ", args.MapID, "\n")
+	//fmt.Print("MapCompleted: ", c.MapCompleted, "\n")
 	return nil
 }
 
 func (c *Coordinator) HandleReduceReport(args *ReportArgs, reply *ReportReply) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.ReduceStatus[args.ReduceID] == 2 {
+		// 任务已经完成，不需要处理
+		return nil
+	}
 	c.ReduceCompleted++
 	c.ReduceStatus[args.ReduceID] = 2 // 任务状态设置为已完成
 	return nil
